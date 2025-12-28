@@ -1,0 +1,650 @@
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+import replace from 'replace';
+import fse from 'fs-extra';
+import fsp from 'fs/promises';
+import { generateApiKey } from 'generate-api-key';
+import bcrypt from 'bcryptjs';
+import path from 'path';
+import { read } from 'read';
+
+yargs(hideBin(process.argv))
+.version()
+.strict()
+.usage('Használat: node op <command>  [name]')
+.help()
+.demandCommand(2, 'Not enough arguments!')
+.command({
+  command: 'make:model <name>',
+  description: 'Generates a new Sequelize model',
+  builder: (yargs) => {
+    return yargs
+      .positional('name', {
+        type: 'string',
+        description: 'Name of the model'
+      })
+  },
+  handler: async (argv) => {
+    const { name } = argv;
+    await copyModel(name);
+  }
+})
+.command({
+  command: 'make:controller <name>',
+  description: 'Generates a new controller',
+  builder: (yargs) => {
+    return yargs
+      .positional('name', {
+        type: 'string',
+        description: 'Name of the controller'
+      })
+  },
+  handler: async (argv) => {
+    const { name } = argv;
+    await copyController(name);
+  }
+})
+.command({
+  command: 'key:generate',
+  description:'Generates a new API key',
+  builder: (yargs) => {
+    return yargs
+  },
+  handler: async (argv) => {
+    startGenerateKey();
+  }
+})
+.command({
+  command: 'conf:generate',
+  description:'Generate a new config file: .env',
+  builder: (yargs) => {
+    return yargs
+  },
+  handler: async (argv) => {
+    startGenerateConf();
+  }
+})
+.command({
+  command: 'testconf:generate',
+  description:'Generate a new config file: .env.test',
+  builder: (yargs) => {
+    return yargs
+  },
+  handler: async (argv) => {
+    startGenerateTestConf();
+  }
+})
+.command({
+  command: 'admin:generate',
+  description:'Generates a new admin user in database table: users',
+  builder: (yargs) => {
+    return yargs
+  },
+  handler: async (argv) => {
+    startGenerateAdmin();
+  }
+})
+.command({
+  command: 'db:import <model> <filePath> [sep]',
+  description: `Import CSV or JSON file to database table
+
+Examples:
+node op db:import thing somethings.json
+node op db:import thing somethings.csv
+node op db:import thing somethings.csv ,
+node op db:import thing somethings.csv :
+node op db:import thing somethings.csv ";"
+
+In CSV file the field names must match the model fields.
+  `,
+  builder: (yargs) => {
+    return yargs
+      .positional('model', {
+        type: 'string',
+        description: 'Name of the model'
+      })
+      .positional('filePath', {
+        type: 'string',
+        description: 'Path to the file'
+      })
+      .positional('sep', {
+        type: 'string',
+        description: 'Separator for the CSV file'
+      })
+  },
+  handler: async (argv) => {
+    const { model, filePath, sep } = argv;
+    await runImportData(model, filePath, sep);
+  }
+})
+.command({
+  command: 'make:migration <name>',
+  description:'Generates a new migration file',
+  builder: (yargs) => {
+    return yargs
+      .positional('name', {
+        type: 'string',
+        description: 'Name of the migration'
+      })
+  },
+  handler: async (argv) => {
+    const { name } = argv;
+    await createMigration(name);
+  }
+})
+.command({
+  command: 'migrate [migrationName]',
+  description:'Runs migrations',
+  aliases: ['migration:run'],
+  builder: (yargs) => {
+    return yargs
+      .positional('migrationName', {
+        type: 'string',
+        description: 'Name of the migration'
+      })
+  },
+  handler: async (argv) => {
+    const { migrationName } = argv;
+    await startMigrations(migrationName);
+  }
+})
+.command({
+  command: 'migrate:rollback',
+  description:'Rolls back migrations',
+  aliases: ['migration:rollback'],
+  builder: (yargs) => {
+    return yargs
+      .options({
+        step: {
+          type: 'number',
+          description: 'Number of migrations to rollback',
+          default: 1
+        }
+      })
+  },
+  handler: async (argv) => {
+    const { step } = argv;
+    await rollbackMigrations(step);
+  }
+})
+.command({
+  command: 'migrate:fresh',
+  description:'Rolls back all migrations',
+  aliases: ['migration:fresh'],
+  builder: (yargs) => {
+    return yargs
+  },
+  handler: async (argv) => {
+    await freshMigrations();
+  }
+})
+.command({
+  command: 'migrate:reset',
+  description:'Rolls back all migrations',
+  aliases: ['migration:reset'],
+  builder: (yargs) => {
+    return yargs
+  },
+  handler: async (argv) => {
+    await resetMigrations();
+  }
+})
+.command({
+  command: 'make:seeder <seederName>',
+  description:'Make seeder...',
+  builder: (yargs) => {
+    return yargs
+      .positional('seederName', {
+        type: 'string',
+        description: 'Name of the seeder'
+      })
+  },
+  handler: async (argv) => {
+    const { seederName } = argv;
+    await createSeeder(seederName);
+  }
+})
+.command({
+  command: 'db:seed [seederName]',
+  description:'Runs seeders',
+  aliases: ['seeder:run'],
+  builder: (yargs) => {
+    return yargs
+      .positional('seederName', {
+        type: 'string',
+        description: 'Name of the seeder'
+      })
+  },
+  handler: async (argv) => {
+    const { seederName } = argv;
+    await startSeeders(seederName);
+  }
+})
+.parse();
+
+async function copyController(className) {
+  const lowerName = className.toLowerCase()
+
+  const src = 'templates/controllerTemplate.js'
+  const dest = `app/controllers/${lowerName}Controller.js`
+
+  if(await startCheckIfFileExists(dest)) {
+    process.exit(1);
+  }
+
+  await fse.copy(src, dest)
+
+  replace({
+      regex: 'Thing',
+      replacement: capitalizeFirstLetter(className),
+      paths: [dest]
+  })
+  replace({
+      regex: 'thing',
+      replacement: className,
+      paths: [dest]
+  })
+  replace({
+    regex: 'things',
+    replacement: className + 's',
+    paths: [dest]
+  })
+}
+
+async function copyModel(className) {
+  const lowerName = className.toLowerCase()
+  const src = 'templates/modelTemplate.js'
+  const dest = `app/models/${lowerName}.js`
+
+  if(await startCheckIfFileExists(dest)) {
+    process.exit(1);
+  }
+
+  await fse.copy(src, dest)
+
+  replace({
+      regex: 'Thing',
+      replacement: capitalizeFirstLetter(className),
+      paths: [dest]
+  })
+  replace({
+      regex: 'thing',
+      replacement: className,
+      paths: [dest]
+  })
+}
+
+async function checkIfFileExists(filePath) {
+  return await fsp.access(filePath)
+      .then(() => true)
+      .catch(() => false);
+}
+
+async function startCheckIfFileExists(filePath) {
+  return await checkIfFileExists(filePath)
+      .then(exists => {
+          if (exists) {
+              console.log(`The file ${filePath} exists!`);
+              return true;
+          } else {
+              return false;
+          }
+      })
+      .catch(error => console.log(error));
+}
+
+function capitalizeFirstLetter(word) {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+async function startGenerateKey() {
+  try {
+    const envFile = '.env'
+    let content = await fse.readFile(envFile, 'utf8')
+    const key = generateApiKey({method: 'bytes', length: 32})
+
+    const regex = /^APP_KEY *=.*$/m
+    if(regex.test(content)) {
+      content = content.replace(regex, `APP_KEY=${key}`)
+    }else {
+      if(content.trim() !== '') {
+        content += `\nAPP_KEY=${key}\n`
+      }else {
+        content = `APP_KEY=${key}\n`
+      }
+    }
+    fse.writeFile(envFile, content, 'utf8')
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+async function startGenerateConf() {
+  const content = `
+APP_PORT=8000
+APP_KEY=
+APP_LOG=console.log
+
+DB_DIALECT=sqlite
+DB_HOST=127.0.0.1
+DB_NAME=
+DB_USER=
+DB_PASS=
+DB_STORAGE=database.sqlite
+`
+  const destinationFileName = '.env'
+  if(await startCheckIfFileExists(destinationFileName)) {
+    process.exit(1);
+  }
+
+  await fse.writeFile(destinationFileName, content, 'utf8')
+}
+
+async function startGenerateTestConf() {
+  const content = `
+APP_PORT=8000
+APP_KEY=my_secret_key
+APP_LOG=console.log
+
+DB_DIALECT=sqlite
+DB_STORAGE=:memory:
+`
+  const destinationFileName = '.env.test'
+  if(await startCheckIfFileExists(destinationFileName)) {
+    process.exit(1);
+  }
+
+  await fse.writeFile(destinationFileName, content, 'utf8')
+}
+
+async function inputPassword() {
+  const password = await read({
+    prompt: 'Password: ',
+    silent: true,
+    replace: '*'
+  })
+  return password
+}
+
+async function startGenerateAdmin() {
+  try {
+    const { default: User } = await import('./app/models/user.js')
+    await User.sync()
+
+    const isUserExist = await User.findOne({ where: { name: 'admin' } })
+    if (isUserExist) {
+      console.log('Admin already exists!')
+      return;
+    }
+    const password = await inputPassword()
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await User.create({
+      name: 'admin',
+      email: 'admin',
+      password: hashedPassword
+    })
+    console.log('Admin created!')
+  } catch (error) {
+    console.error('Error creating admin!')
+    console.error(error)
+  }
+}
+
+const importFromJson = async (model, filePath) => {
+  try {
+      const data = JSON.parse(await fsp.readFile(filePath, 'utf8'))
+      await model.bulkCreate(data)
+      console.log(`Data imported successfully! ${model.name}`)
+  } catch (error) {
+      console.error(error)
+  }
+}
+
+const importFromCsv = async (model, filePath, sep) => {
+  try {
+      const data = await fsp.readFile(filePath, 'utf8')
+      const clearData = data.replace(/"/g, '').trim()
+      const rows = clearData.split('\n')
+      const headerColumns = rows.shift().split(sep)
+      
+      const dataToInsert = rows.map(row => {
+          const columns = row.split(sep).map(item => {
+            const number = Number(item)
+            return Number.isNaN(number) ? `${item}` : number
+          })
+          return headerColumns.reduce((obj, header, index) => {
+              obj[header] = columns[index]
+              return obj
+          }, {})
+      })
+
+      await model.bulkCreate(dataToInsert)
+      console.log(`Data imported successfully! ${model.name}`)
+  } catch (error) {
+      console.error(error)
+  }
+}
+
+async function runImportData(model, filePath, sep=',') {
+  
+  if(!filePath || !model) {
+      console.log('Usage: node db:import <modelName> <filePath> [sep]')
+      process.exit(1)
+  }
+  
+  try {
+    await import(`./app/models/${model}.js`)
+  } catch (error) {
+    console.log(`The ${model} model file does not exist!`)
+    process.exit(1)
+  }
+
+  try {
+    await fsp.stat(filePath)
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log(`The file ${filePath} does not exist!`)
+      process.exit(1)
+    } else {
+      console.error(error)
+      process.exit(1)
+    }
+  }
+
+  const modelInstance = await import(`./app/models/${model}.js`)
+  const modelObject = modelInstance.default
+
+  const ext = path.extname(filePath).toLowerCase()
+  if(ext !== '.json' && ext !== '.csv') {
+      console.log('The file must have .json or .csv extension!')
+      process.exit(1)
+  }
+  const { default: sequelize } = await import('./app/database/database.js')
+  try {
+      await sequelize.sync({ force: true })
+      await sequelize.authenticate()
+      if(ext === '.csv') {
+          await importFromCsv(modelObject, filePath, sep)
+      }else {
+          await importFromJson(modelObject, filePath)
+      }        
+  } catch (error) {
+      console.error(error)
+  }
+
+}
+
+async function createMigration(name) {
+  console.log('Create a new migration...', name)
+
+  const lowerName = name.toLowerCase()
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  const timestamp = `${year}_${month}_${day}_${hours}${minutes}${seconds}`
+
+  const migrationName = `${timestamp}_${lowerName}`
+
+  const src = 'templates/migrationTemplate.js'
+  const dest = `database/migrations/${migrationName}.js`
+
+  if(await startCheckIfFileExists(dest)) {
+    process.exit(1);
+  }
+
+  await fse.copy(src, dest)
+
+  replace({
+      regex: 'thing',
+      replacement: name,
+      paths: [dest]
+  }) 
+
+}
+
+async function getUmzug(directory) {
+  const { default: sequelize } = await import('./app/database/database.js')
+  const { Umzug, SequelizeStorage } = await import('umzug')
+
+  const umzug = new Umzug({
+    migrations: { glob: directory },
+    context: sequelize.getQueryInterface(),
+    storage: new SequelizeStorage({ sequelize }),
+    logger: console
+  })
+
+  return umzug
+}
+
+async function startMigrations(name) {
+  if(name) {
+    await runOneMigration(name)
+  } else {
+    await runMigrations()
+  }
+}
+
+async function runOneMigration(name) {
+  console.log('Run one migration...', name)
+
+  if(!name.endsWith('.js')) {
+    name += '.js'
+  }
+  let migrationPath = '';
+  if(!name.startsWith('database/migrations/')) {
+    migrationPath = `database/migrations/${name}`
+  }else {
+    migrationPath = name
+  }
+  
+  if(!await startCheckIfFileExists(migrationPath)) {
+    console.log(`The migration file ${migrationPath} not already exists.`)
+    process.exit(1)
+  }
+
+  const umzug = await getUmzug(migrationPath)
+  await umzug.up()
+}
+
+async function runMigrations() {
+  console.log('Run migrations...')
+  const umzug = await getUmzug('./database/migrations/*.js')
+  await umzug.up()
+}
+
+async function resetMigrations() {
+  console.log('Reset migrations...')
+  const umzugSeeder = await getUmzug('./database/seeders/*.js')
+  await umzugSeeder.down({ to: 0 })
+  const umzug = await getUmzug('./database/migrations/*.js')
+  await umzug.down({ to: 0 })
+}
+
+async function freshMigrations() {
+  console.log('Fresh migrations...')
+  await resetMigrations()
+  await runMigrations()
+}
+
+async function rollbackMigrations(step = 1) {
+  console.log('Rollback migrations...')
+  const umzug = await getUmzug('./database/migrations/*.js')
+  await umzug.down({ step: step })
+}
+
+async function createSeeder(name) {
+  console.log('Create a new seeder...', name)
+
+  const lowerName = name.toLowerCase()
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  const timestamp = `${year}_${month}_${day}_${hours}${minutes}${seconds}`
+
+  const migrationName = `${timestamp}_${lowerName}`
+
+  const src = 'templates/seederTemplate.js'
+  const dest = `database/seeders/${migrationName}.js`
+
+  if(await startCheckIfFileExists(dest)) {
+    process.exit(1);
+  }
+
+  await fse.copy(src, dest)
+
+  replace({
+      regex: 'Thing',
+      replacement: capitalizeFirstLetter(name),
+      paths: [dest]
+  })
+  replace({
+      regex: 'thing',
+      replacement: name,
+      paths: [dest]
+  }) 
+
+}
+
+async function startSeeders(name) {
+  if(name) {
+    await runOneSeeder(name)
+  } else {
+    await runSeeders()
+  }
+}
+
+async function runOneSeeder(name) {
+  console.log('Run one seeder...', name)
+
+  if(!name.endsWith('.js')) {
+    name += '.js'
+  }
+  let seederPath = ''
+  if(!name.startsWith('database/seeders/')) {
+    seederPath = `database/seeders/${name}`
+  }else {
+    seederPath = name
+  }
+
+  if(!await startCheckIfFileExists(seederPath)) {
+    console.log(`The seeder file ${seederPath} not already exists.`)
+    process.exit(1)
+  }
+
+  const umzug = await getUmzug(seederPath)
+  await umzug.up()
+}
+
+async function runSeeders() {
+  console.log('Run seeders...')
+  const umzug = await getUmzug('./database/seeders/*.js')
+  await umzug.up()
+}

@@ -81,18 +81,65 @@ const AuthController = {
     try {
       await EmailService.send({
         to: req.body.email,
-        subject: 'Email verification',
+        subject: 'CasaFlow – Regisztráció megerősítése',
+
         text:
-          `Hello ${req.body.name}!\n\n` +
-          `Kérlek, erősítsd meg a regisztrációdat az alábbi linken:\n\n${verifyUrl}\n\n` +
-          `Ha nem te regisztráltál, nyugodtan hagyd figyelmen kívül ezt az üzenetet.`,
+          `Szia ${req.body.name}!\n\n` +
+          `Kérlek, erősítsd meg a regisztrációdat az alábbi linken:\n\n` +
+          `${verifyUrl}\n\n` +
+          `Üdvözlettel:\nA CasaFlow csapata`,
+
         html: `
-          <p>Szia <b>${req.body.name}</b>!</p>
-          <p>Kérlek, erősítsd meg a regisztrációdat az alábbi linkre kattintva:</p>
-          <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-          <p>Ha nem te regisztráltál, egyszerűen hagyd figyelmen kívül ezt az emailt.</p>
+          <div style="
+            max-width:600px;
+            margin:0 auto;
+            font-family:Arial, Helvetica, sans-serif;
+            color:#333;
+            line-height:1.6;
+          ">
+
+            <!-- SZÖVEG -->
+            <p>Szia <strong>${req.body.name}</strong>!</p>
+
+            <p>
+              Köszönjük, hogy regisztráltál a <strong>CasaFlow</strong> rendszerbe.
+              Kérlek, erősítsd meg a regisztrációdat az alábbi gombra kattintva:
+            </p>
+
+            <!-- GOMB -->
+            <div style="text-align:center; margin:32px 0;">
+              <a
+                href="${verifyUrl}"
+                style="
+                  background-color:#5a9c8a;
+                  color:#ffffff;
+                  padding:14px 28px;
+                  text-decoration:none;
+                  border-radius:6px;
+                  display:inline-block;
+                  font-weight:bold;
+                "
+              >
+                Regisztráció megerősítése
+              </a>
+            </div>
+
+            <p style="font-size:14px; color:#666;">
+              Ha nem te regisztráltál, nyugodtan hagyd figyelmen kívül ezt az emailt.
+            </p>
+
+            <hr style="border:none; border-top:1px solid #eee; margin:32px 0;">
+
+            <!-- ALÁÍRÁS -->
+            <p style="font-size:14px;">
+              Üdvözlettel,<br>
+              <strong>A CasaFlow csapata</strong>
+            </p>
+
+          </div>
         `,
       })
+
       console.log('Verification email sent to:', req.body.email)
     } catch (mailError) {
       console.error('Error sending verification email:', mailError)
@@ -243,11 +290,58 @@ const AuthController = {
             `Kérlek, állítsd vissza a jelszavad az alábbi linken:\n\n${resetUrl}\n\n` +
             `Ha nem te kérted, hagyd figyelmen kívül.`,
           html: `
-            <p>Szia!</p>
-            <p>Kérlek, állítsd vissza a jelszavad az alábbi linkre kattintva:</p>
-            <p><a href="${resetUrl}">${resetUrl}</a></p>
-            <p>Ha nem te kérted a jelszóváltoztatást, hagyd figyelmen kívül ezt az emailt.</p>
+            <div style="
+              max-width:600px;
+              margin:0 auto;
+              font-family:Arial, Helvetica, sans-serif;
+              color:#333;
+              line-height:1.6;
+            ">
+
+              <p>Szia!</p>
+
+              <p>
+                Úgy tűnik, jelszó-visszaállítást kértél a
+                <strong>CasaFlow</strong> fiókodhoz.
+              </p>
+
+              <p>
+                Kérlek, kattints az alábbi gombra az új jelszó beállításához:
+              </p>
+
+              <!-- GOMB -->
+              <div style="text-align:center; margin:32px 0;">
+                <a
+                  href="${resetUrl}"
+                  style="
+                    background-color:#5a9c8a;
+                    color:#ffffff;
+                    padding:14px 28px;
+                    text-decoration:none;
+                    border-radius:6px;
+                    display:inline-block;
+                    font-weight:bold;
+                  "
+                >
+                  Jelszó visszaállítása
+                </a>
+              </div>
+
+              <p style="font-size:14px; color:#666;">
+                Ha nem te kérted a jelszóváltoztatást, egyszerűen hagyd figyelmen kívül
+                ezt az emailt.
+              </p>
+
+              <hr style="border:none; border-top:1px solid #eee; margin:32px 0;">
+
+              <p style="font-size:14px;">
+                Üdvözlettel,<br>
+                <strong>A CasaFlow csapata</strong>
+              </p>
+
+            </div>
           `,
+
         })
         console.log('Password reset email sent to:', email)
       } catch (mailError) {

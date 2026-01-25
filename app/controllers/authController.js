@@ -8,49 +8,90 @@ import EmailService from '../services/emailService.js'
 
 dotenv.config({ quiet: true })
 
+// nagyon egyszerű email formátum ellenőrzés (frontend mellett jó, backendben is legyen)
+function isValidEmail(email) {
+  if (!email) return false
+  // nem tökéletes RFC, de elég jó alap validáció
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())
+}
+
 const AuthController = {
   // ---------------- REGISZTRÁCIÓ ----------------
   async register(req, res) {
-    let clientError = false
-
     try {
-      if (
-        !req.body.name ||
-        !req.body.email ||
-        !req.body.password ||
-        !req.body.password_confirmation
-      ) {
-        clientError = true
-        throw new Error('Error! Bad request data!')
+      const errors = {}
+
+      const name = (req.body.name || '').trim()
+      const email = (req.body.email || '').trim()
+      const password = req.body.password || ''
+      const password_confirmation = req.body.password_confirmation || ''
+
+      // 1) Kötelező mezők
+      if (!name) errors.name = ['Name is required!']
+      if (!email) errors.email = ['Email is required!']
+      if (!password) errors.password = ['Password is required!']
+      if (!password_confirmation)
+        errors.password_confirmation = ['Password confirmation is required!']
+
+      // 2) Email formátum
+      if (email && !isValidEmail(email)) {
+        errors.email = errors.email || []
+        errors.email.push('Invalid email format!')
       }
 
-      if (req.body.password !== req.body.password_confirmation) {
-        clientError = true
-        throw new Error('Error! The two password is not same!')
+      // 3) Jelszó egyezés
+      if (password && password_confirmation && password !== password_confirmation) {
+        errors.password_confirmation = errors.password_confirmation || []
+        errors.password_confirmation.push('The two password is not same!')
       }
 
+      // 4) Ha már van alap hiba, ne menjünk DB-hez feleslegesen
+      // (de akár mehetne, csak gyorsítás így)
+      // Megjegyzés: ha szeretnéd, hogy foglaltságot akkor is nézze,
+      // amikor más mezőhibák is vannak, ezt a "return"-t vedd ki.
+      if (Object.keys(errors).length > 0) {
+        return res.status(422).json({
+          success: false,
+          errors,
+        })
+      }
+
+      // 5) Foglaltság ellenőrzés DB-ben (name + email)
       const existingUserByName = await User.findOne({
-        where: { name: req.body.name },
+        where: { name: name },
       })
       if (existingUserByName) {
-        clientError = true
-        throw new Error('Error! This username is already exists!')
+        errors.name = errors.name || []
+        errors.name.push('This username is already exists!')
       }
 
       const existingUserByEmail = await User.findOne({
-        where: { email: req.body.email },
+        where: { email: email },
       })
       if (existingUserByEmail) {
-        clientError = true
-        throw new Error('Error! This email is already exists!')
+        errors.email = errors.email || []
+        errors.email.push('This email is already exists!')
       }
+
+      // 6) Ha bármelyik foglalt, egyszerre küldjük vissza a hibákat
+      if (Object.keys(errors).length > 0) {
+        return res.status(422).json({
+          success: false,
+          errors,
+        })
+      }
+
+      // 7) ha minden oké -> regisztrálás
+      // visszaírjuk a req.body-ba a trimelt értékeket, hogy tryRegister ezeket használja
+      req.body.name = name
+      req.body.email = email
 
       await AuthController.tryRegister(req, res)
     } catch (error) {
       if (!res.headersSent) {
-        res.status(clientError ? 400 : 500).json({
+        res.status(500).json({
           success: false,
-          message: clientError ? error.message : 'Error! The register is failed!',
+          message: 'Error! The register is failed!',
           error: error.message,
         })
       } else {
@@ -341,7 +382,6 @@ const AuthController = {
 
             </div>
           `,
-
         })
         console.log('Password reset email sent to:', email)
       } catch (mailError) {

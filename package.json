@@ -4,7 +4,7 @@
   "description": "Express API with simple Sequelize",
   "main": "index.js",
   "scripts": {
-    "test": "NODE_ENV=test mocha",
+    "test": "cross-env NODE_ENV=test mocha --file test/mocha.setup.js \"test/**/*.spec.js\"",
     "dev": "nodemon app",
     "start": "node app"
   },
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "cross-env": "^7.0.3",
     "fs-extra": "^11.3.0",
     "mocha": "^11.7.4",
     "nodemon": "^2.0.22",

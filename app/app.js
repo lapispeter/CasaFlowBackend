@@ -21,8 +21,10 @@ app.use(express.json())
 
 app.use('/api', router)
 
-// ✅ Scheduler induljon el a backend indulásakor
-startDueDateScheduler()
+// ✅ Scheduler csak DEV/PROD módban induljon
+// (Teszt futásnál NE, mert in-memory DB + üres táblák miatt hibát dobna)
+if (process.env.NODE_ENV !== 'test') {
+  startDueDateScheduler()
+}
 
 export default app
-

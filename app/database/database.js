@@ -1,23 +1,30 @@
-import Sequelize from 'sequelize'
+import { Sequelize } from 'sequelize'
 import dotenvFlow from 'dotenv-flow'
 
-if (process.env.NODE_ENV === 'test') {
-    dotenvFlow.config({ path: '.env.test' })
-}else {
-    dotenvFlow.config()    
-}
+// ⬅️ EZ FONTOS
+dotenvFlow.config({ silent: true })
 
-const sequelize = new Sequelize(
-    process.env.DB_NAME,
+const DIALECT = process.env.DB_DIALECT || 'sqlite'
+
+let sequelize
+
+if (DIALECT === 'sqlite') {
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: process.env.DB_STORAGE || 'database.sqlite',
+    logging: false
+  })
+} else {
+  sequelize = new Sequelize(
+    process.env.DB_DATABASE,
     process.env.DB_USER,
-    process.env.DB_PASS,
+    process.env.DB_PASSWORD,
     {
-        dialect: process.env.DB_DIALECT,
-        storage: process.env.DB_STORAGE,
-        host: process.env.DB_HOST,
-        logging: process.env.APP_LOG === 'true' ? console.log : false,
-        dialectOptions: {}
+      host: process.env.DB_HOST,
+      dialect: DIALECT,
+      logging: false
     }
-)
+  )
+}
 
 export default sequelize

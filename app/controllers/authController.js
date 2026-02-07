@@ -41,10 +41,7 @@ const AuthController = {
       }
 
       if (Object.keys(errors).length > 0) {
-        return res.status(422).json({
-          success: false,
-          errors,
-        })
+        return res.status(422).json({ success: false, errors })
       }
 
       const existingUserByName = await User.findOne({ where: { name } })
@@ -60,10 +57,7 @@ const AuthController = {
       }
 
       if (Object.keys(errors).length > 0) {
-        return res.status(422).json({
-          success: false,
-          errors,
-        })
+        return res.status(422).json({ success: false, errors })
       }
 
       req.body.name = name
@@ -90,9 +84,13 @@ const AuthController = {
       name: req.body.name,
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password),
+
+      roleId: 0,                 // ✅ alap: normál user
       isVerified: false,
       verificationToken,
       verificationTokenExpires,
+
+      lastActivityAt: null        // ✅ még nem aktív (majd login/CRUD frissíti)
     }
 
     const result = await User.create(user)
@@ -140,7 +138,6 @@ const AuthController = {
       console.log('Verification email sent to:', req.body.email)
     } catch (mailError) {
       console.error('Error sending verification email:', mailError)
-      // Fontos: a regisztrációt ettől még nem törjük meg
     }
 
     res.status(201).json({
@@ -160,9 +157,7 @@ const AuthController = {
         })
       }
 
-      const user = await User.findOne({
-        where: { name: req.body.name },
-      })
+      const user = await User.findOne({ where: { name: req.body.name } })
 
       if (!user) {
         return res.status(404).json({
@@ -171,7 +166,6 @@ const AuthController = {
         })
       }
 
-      // ✅ 1) Email ellenőrzés kapu
       if (!user.isVerified) {
         return res.status(403).json({
           success: false,
@@ -187,6 +181,10 @@ const AuthController = {
           message: 'Invalid password!',
         })
       }
+
+      // ✅ aktivitás frissítés (admin statisztika)
+      user.lastActivityAt = new Date()
+      await user.save()
 
       await AuthController.tryLogin(req, res, user)
     } catch (error) {
@@ -208,6 +206,7 @@ const AuthController = {
       id: user.id,
       name: user.name,
       email: user.email,
+      roleId: user.roleId,          // ✅ FRONTEND admin redirecthez kell
       accessToken: token,
     })
   },
@@ -224,9 +223,7 @@ const AuthController = {
         })
       }
 
-      const user = await User.findOne({
-        where: { verificationToken: token },
-      })
+      const user = await User.findOne({ where: { verificationToken: token } })
 
       if (!user) {
         return res.status(404).json({
@@ -262,7 +259,7 @@ const AuthController = {
     }
   },
 
-  // ---------------- ELFELEJTETT JELSZÓ: TOKEN KÜLDÉSE ----------------
+  // ---------------- ELFELELEJTETT JELSZÓ: TOKEN KÜLDÉSE ----------------
   async forgotPassword(req, res) {
     try {
       const { email } = req.body
@@ -367,9 +364,7 @@ const AuthController = {
         })
       }
 
-      const user = await User.findOne({
-        where: { passwordResetToken: token },
-      })
+      const user = await User.findOne({ where: { passwordResetToken: token } })
 
       if (!user) {
         return res.status(404).json({

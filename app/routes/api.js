@@ -4,16 +4,22 @@ const router = Router()
 import AuthController from '../controllers/authController.js'
 import UserController from '../controllers/userController.js'
 import verifyToken from '../middleware/authjwt.js'
+import isAdmin from '../middleware/isAdmin.js'
+
 import BillController from '../controllers/billController.js'
 import MeterReadingController from '../controllers/meterReadingController.js'
 import ReminderController from '../controllers/reminderController.js'
 import ShoppingListController from '../controllers/shoppingListController.js'
-
+import AdminController from '../controllers/adminController.js'
+import SystemMessageController from '../controllers/systemMessageController.js'
 
 // Auth
 router.post('/register', AuthController.register)
 router.post('/login', AuthController.login)
 router.get('/verify-email', AuthController.verifyEmail)
+
+// ✅ SYSTEM MESSAGE (login oldalon megjelenik)
+router.get('/system-message', SystemMessageController.show)
 
 // Elfelejtett jelszó
 router.post('/forgot-password', AuthController.forgotPassword)
@@ -53,6 +59,13 @@ router.post('/shopping-lists', [verifyToken], ShoppingListController.store)
 router.put('/shopping-lists/:id', [verifyToken], ShoppingListController.update)
 router.delete('/shopping-lists/:id', [verifyToken], ShoppingListController.destroy)
 
+// ✅ ADMIN (védett + admin only)
+router.get('/admin/users', [verifyToken, isAdmin], AdminController.users)
+router.get('/admin/users/passive', [verifyToken, isAdmin], AdminController.passiveUsers)
+router.get('/admin/stats/users', [verifyToken, isAdmin], AdminController.userStats)
+router.delete('/admin/users/:id', [verifyToken, isAdmin], AdminController.deleteUser)
 
+// ✅ ADMIN: system message szerkesztés
+router.put('/admin/system-message', [verifyToken, isAdmin], SystemMessageController.update)
 
 export default router

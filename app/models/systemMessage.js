@@ -14,12 +14,6 @@ const SystemMessage = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: false,
       defaultValue: ''
-    },
-
-    // admin id, aki utoljára módosította (nem kötelező, de hasznos)
-    updatedByUserId: {
-      type: DataTypes.INTEGER,
-      allowNull: true
     }
   },
   {

@@ -39,7 +39,7 @@ const MeterReading = sequelize.define(
     },
   },
   {
-    tableName: 'meter_readings',
+    tableName: 'meterReading',
     timestamps: true,
   }
 )

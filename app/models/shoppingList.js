@@ -54,7 +54,7 @@ const ShoppingList = sequelize.define(
     },
   },
   {
-    tableName: 'shopping_list',
+    tableName: 'shoppingList',
     timestamps: true,
   }
 )

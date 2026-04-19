@@ -59,7 +59,7 @@ describe('/api/meter-readings', function () {
       .send({
         meterType: 'Gáz',
         reading: 50.5,
-        date: '2026-06-02'
+        date: '2026-04-02'
       })
 
     const res = await request(app)

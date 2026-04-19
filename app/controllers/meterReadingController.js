@@ -25,7 +25,12 @@ const MeterReadingController = {
         const fromDate = new Date();
         fromDate.setMonth(fromDate.getMonth() - months);
 
-        where.date = { [Op.gte]: fromDate };
+        const toDate = new Date();
+
+        where.date = {
+          [Op.gte]: fromDate,
+          [Op.lte]: toDate
+        };
       }
 
       const readings = await MeterReading.findAll({

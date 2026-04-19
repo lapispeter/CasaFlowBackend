@@ -25,6 +25,12 @@ const Reminder = sequelize.define(
       allowNull: false,
     },
 
+    isCompleted: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+},
+
     // 🔔 Mikor küldtünk értesítést erről az emlékeztetőről (null = még nem)
     notifiedAt: {
       type: DataTypes.DATE,

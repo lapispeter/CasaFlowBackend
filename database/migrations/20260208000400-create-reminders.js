@@ -25,6 +25,12 @@ async function up({ context: QueryInterface }) {
       allowNull: false,
     },
 
+        isCompleted: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+
     notifiedAt: {
       type: DataTypes.DATE,
       allowNull: true,
